@@ -171,7 +171,7 @@ git clone https://github.com/prachisarode95/OpsPilot-AI-Logistics-Operations-Aut
 
 ---
 
-# Resume / Portfolio Impact
+# Key Impact
 
 This project demonstrates practical skills in:
 
