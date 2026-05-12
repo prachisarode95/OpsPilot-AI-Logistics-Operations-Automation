@@ -113,11 +113,11 @@ Medium and Low incidents:
 
 ## Executive Dashboard
 
-![Dashboard Overview](screenshots/dashboard-overview.png)
+![Dashboard Overview](https://github.com/user-attachments/assets/256e082d-ed39-49c2-9734-f8bccfe01c41)
 
 ## Airtable Incident Record
 
-![Airtable Record](screenshots/airtable-record-detail.png)
+![Airtable Record](https://github.com/user-attachments/assets/658b1a03-310b-4dd8-bf47-3f665d4b4b07)
 
 ---
 
@@ -125,15 +125,15 @@ Medium and Low incidents:
 
 ## n8n Workflow Overview
 
-![Workflow Overview](screenshots/workflow-overview.png)
+![Workflow Overview](https://github.com/user-attachments/assets/d4f85876-2ace-4bd4-baab-2d252df71bc9)
 
 ## Tally Intake Form
 
-![Tally Form](screenshots/tally-form.png)
+![Tally Form](https://github.com/user-attachments/assets/1ecd38a3-d86c-4548-bf0d-2bd851bfc556)
 
 ## Gmail Escalation Alert
 
-![Escalation Email](screenshots/escalation-email.png)
+![Escalation Email](https://github.com/user-attachments/assets/f4b70942-52f0-4a23-b3d8-94f7c1e97b66)
 
 ---
 
@@ -157,7 +157,7 @@ Potential future enhancements include:
 ## Clone Repository
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/OpsPilot-AI-Incident-Automation.git
+git clone https://github.com/prachisarode95/OpsPilot-AI-Logistics-Operations-Automation.git
 ```
 
 ## Configure Workflow
