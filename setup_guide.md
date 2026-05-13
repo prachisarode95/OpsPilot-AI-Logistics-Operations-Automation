@@ -51,7 +51,7 @@ OpsPilot-AI-Logistics-Operations-Automation/
 │
 ├── README.md
 ├── setup_guide.md
-├── assets/
+├── screenshots/
 │   ├── architecture_flow.png
 │   ├── executive_dashboard.png
 │   ├── workflow_overview.png
@@ -59,10 +59,8 @@ OpsPilot-AI-Logistics-Operations-Automation/
 │   └── tally_form.png
 │
 ├── workflow/
-│   └── opspilot_n8n_workflow.json
-│
-└── presentation/
-    └── OpsPilot_AI_Hackathon_Deck.pptx
+    └── opspilot_n8n_workflow.json
+
 ```
 
 ---
