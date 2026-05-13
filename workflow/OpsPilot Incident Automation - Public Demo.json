@@ -1,0 +1,866 @@
+{
+  "name": "OpsPilot Incident Automation - Public Demo",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -16,
+        80
+      ],
+      "id": "191a2345-cac8-40c5-9cad-2c1a07b6ed8d",
+      "name": "Webhook",
+      "webhookId": "55112194-02eb-40ef-b659-81003a0801e2"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ===== GET TALLY FIELDS =====\n\nconst fields =\n  $node[\"Webhook\"].json.body.data.fields;\n\n// ===== SAFE FIELD ACCESS =====\n\nconst incidentTitle =\n  fields[0]?.value || \"\";\n\nconst departmentField =\n  fields[1] || {};\n\nconst description =\n  fields[2]?.value || \"\";\n\nconst reporterName =\n  fields[3]?.value || \"\";\n\nconst reporterEmail =\n  fields[4]?.value || \"\";\n\n// ===== FIX DROPDOWN EXTRACTION =====\n\nlet department = \"\";\n\nif (\n  departmentField.type === \"DROPDOWN\"\n) {\n\n  const selectedId =\n    departmentField.value?.[0];\n\n  const matchedOption =\n    departmentField.options?.find(\n      option => option.id === selectedId\n    );\n\n  department =\n    matchedOption?.text || \"\";\n}\n\n// ===== AI RESPONSE =====\n\nconst aiResponse =\n  $json.choices?.[0]?.message?.content || \"\";\n\nconst aiText =\n  aiResponse.toLowerCase();\n\n// ===== DEFAULT VALUES =====\n\nlet severity = \"Low\";\nlet incident_type = \"Delay\";\nlet operational_impact = \"Low\";\nlet escalation_required = \"No\";\nlet summary = description;\n\n// ===== CRITICAL =====\n\nif (aiText.includes(\"critical\")) {\n\n  severity = \"Critical\";\n  incident_type = \"System Failure\";\n  operational_impact = \"High\";\n  escalation_required = \"Yes\";\n}\n\n// ===== HIGH =====\n\nelse if (aiText.includes(\"high\")) {\n\n  severity = \"High\";\n\n  if (\n    description.toLowerCase().includes(\"system\") ||\n    description.toLowerCase().includes(\"conveyor\") ||\n    description.toLowerCase().includes(\"failure\")\n  ) {\n\n    incident_type = \"System Failure\";\n\n  } else {\n\n    incident_type = \"Route Issue\";\n  }\n\n  operational_impact = \"Critical\";\n  escalation_required = \"Yes\";\n}\n\n// ===== MEDIUM =====\n\nelse if (aiText.includes(\"medium\")) {\n\n  severity = \"Medium\";\n  incident_type = \"Inventory Problem\";\n  operational_impact = \"Medium\";\n  escalation_required = \"No\";\n}\n\n// ===== LOW =====\n\nelse {\n\n  severity = \"Low\";\n  incident_type = \"Delay\";\n  operational_impact = \"Low\";\n  escalation_required = \"No\";\n}\n\n// ===== RETURN FINAL JSON =====\n\nreturn [\n  {\n    incident_title: incidentTitle,\n    department: department,\n    description: description,\n\n    reporter_name: reporterName,\n    reporter_email: reporterEmail,\n\n    incident_type: incident_type,\n    severity: severity,\n    operational_impact: operational_impact,\n    escalation_required: escalation_required,\n    summary: summary\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        432,
+        80
+      ],
+      "id": "d82ea7f9-235b-4b23-be6b-fb76f0955fb6",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://openrouter.ai/api/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_OPENROUTER_API_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "openai/gpt-3.5-turbo"
+            },
+            {
+              "name": "messages",
+              "value": "={{[\n  {\n    role: \"system\",\n    content: \"You are an AI operations analyst.\"\n  },\n  {\n    role: \"user\",\n    content:\n`Analyze the logistics incident and return ONLY valid JSON.\n\nRequired JSON format:\n{\n  \"incident_type\": \"\",\n  \"severity\": \"\",\n  \"operational_impact\": \"\",\n  \"escalation_required\": \"\",\n  \"summary\": \"\"\n}\n\nRules:\n\nincident_type must be EXACTLY one of:\n- Delay\n- Route Issue\n- Driver Incident\n- Inventory Problem\n- Customer Complaint\n- System Failure\n\nseverity must be EXACTLY one of:\n- Low\n- Medium\n- High\n- Critical\n\noperational_impact must be EXACTLY one of:\n- Low\n- Medium\n- High\n- Critical\n\nescalation_required must be:\n- Yes\n- No\n\nIncident Title:\n${$node[\"Webhook\"].json.body.data.fields[0].value}\n\nDepartment:\n${$node[\"Webhook\"].json.body.data.fields[1].options[0].text}\n\nIncident Description:\n${$node[\"Webhook\"].json.body.data.fields[2].value}`\n  }\n]}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        208,
+        80
+      ],
+      "id": "fcfb0c45-df76-424a-9559-611e70130676",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "b8693321-48b2-4e75-81dd-cbab89a207c7",
+              "leftValue": "={{$json.severity === \"High\" || $json.severity === \"Critical\"}}",
+              "rightValue": "High",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        656,
+        80
+      ],
+      "id": "4422dc33-aeeb-4678-8e82-51cf11eb1f76",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "sendTo": "prachisarode95@gmail.com",
+        "subject": "=[{{$node[\"Code in JavaScript\"].json.severity}} ALERT] {{$node[\"Webhook\"].json.body.data.fields[0].value}}",
+        "message": "=<h2>🚨 OpsPilot AI Incident Escalation Alert</h2>\n\n<hr>\n\n<p>\n<strong>Incident Title:</strong><br>\n{{$node[\"Webhook\"].json.body.data.fields[0].value}}\n</p>\n\n<p>\n<strong>Department:</strong><br>\n{{$node[\"Webhook\"].json.body.data.fields[1].options[0].text}}\n</p>\n\n<p>\n<strong>AI Severity:</strong><br>\n<span style=\"color:red;font-weight:bold;\">\n{{$node[\"Code in JavaScript\"].json.severity}}\n</span>\n</p>\n\n<p>\n<strong>Operational Impact:</strong><br>\n{{$node[\"Code in JavaScript\"].json.operational_impact}}\n</p>\n\n<p>\n<strong>Escalation Required:</strong><br>\n{{$node[\"Code in JavaScript\"].json.escalation_required}}\n</p>\n\n<p>\n<strong>AI Incident Summary:</strong><br>\n{{$node[\"Code in JavaScript\"].json.summary}}\n</p>\n\n<hr>\n\n<p style=\"color:gray;font-size:13px;\">\nGenerated automatically by OpsPilot AI —\nGeo-enabled Incident Intelligence Platform for Logistics & Supply Chain Operations.\n</p>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        880,
+        -16
+      ],
+      "id": "cbe988b2-8ab7-4a1e-88fd-b5c63bc0685b",
+      "name": "Send a message",
+      "webhookId": "3da20b42-4ac5-404f-bd44-9e5b8fc54c39"
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "appSAUO7u5DIBUJUG",
+          "mode": "list",
+          "cachedResultName": "OpsPilot AI Operations Dashboard",
+          "cachedResultUrl": "https://airtable.com/appSAUO7u5DIBUJUG"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblV2e7Q32XaUYHKN",
+          "mode": "list"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Escalation Required": "={{$node[\"Code in JavaScript\"].json[\"escalation_required\"]}}",
+            "Incident Title": "={{$node[\"Code in JavaScript\"].json[\"incident_title\"]}}",
+            "Department": "={{$node[\"Code in JavaScript\"].json[\"department\"]}}",
+            "Incident Type": "={{$node[\"Code in JavaScript\"].json[\"incident_type\"]}}",
+            "Operational Impact": "={{$node[\"Code in JavaScript\"].json[\"operational_impact\"]}}",
+            "AI Priority": "={{$node[\"Code in JavaScript\"].json[\"severity\"]}}",
+            "AI Summary": "={{$node[\"Code in JavaScript\"].json[\"summary\"]}}",
+            "Reporter Name": "={{$node[\"Code in JavaScript\"].json[\"reporter_name\"]}}",
+            "Reporter Email": "={{$node[\"Code in JavaScript\"].json[\"reporter_email\"]}}",
+            "Incident Description": "={{$node[\"Code in JavaScript\"].json[\"description\"]}}",
+            "Incident Status": "={{\n$node[\"Code in JavaScript\"].json[\"severity\"] === \"Critical\" ||\n$node[\"Code in JavaScript\"].json[\"severity\"] === \"High\"\n? \"Escalated\"\n: $node[\"Code in JavaScript\"].json[\"severity\"] === \"Medium\"\n? \"Under Review\"\n: \"Resolved\"\n}}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Ticket ID",
+              "displayName": "Ticket ID",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": true
+            },
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": true
+            },
+            {
+              "id": "Incident Title",
+              "displayName": "Incident Title",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Department",
+              "displayName": "Department",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Logistics",
+                  "value": "Logistics"
+                },
+                {
+                  "name": "Warehouse",
+                  "value": "Warehouse"
+                },
+                {
+                  "name": "Dispatch",
+                  "value": "Dispatch"
+                },
+                {
+                  "name": "Customer Support",
+                  "value": "Customer Support"
+                },
+                {
+                  "name": "Fleet Operations",
+                  "value": "Fleet Operations"
+                },
+                {
+                  "name": "Cold Chain",
+                  "value": "Cold Chain"
+                },
+                {
+                  "name": "Supply Chain",
+                  "value": "Supply Chain"
+                },
+                {
+                  "name": "Transportation",
+                  "value": "Transportation"
+                },
+                {
+                  "name": "Inventory Management",
+                  "value": "Inventory Management"
+                },
+                {
+                  "name": "Operational Control Center",
+                  "value": "Operational Control Center"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Incident Type",
+              "displayName": "Incident Type",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Delay",
+                  "value": "Delay"
+                },
+                {
+                  "name": "Route Issue",
+                  "value": "Route Issue"
+                },
+                {
+                  "name": "Driver Incident",
+                  "value": "Driver Incident"
+                },
+                {
+                  "name": "Inventory Problem",
+                  "value": "Inventory Problem"
+                },
+                {
+                  "name": "Customer Complaint",
+                  "value": "Customer Complaint"
+                },
+                {
+                  "name": "System Failure",
+                  "value": "System Failure"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "AI Priority",
+              "displayName": "AI Priority",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Low",
+                  "value": "Low"
+                },
+                {
+                  "name": "Medium",
+                  "value": "Medium"
+                },
+                {
+                  "name": "High",
+                  "value": "High"
+                },
+                {
+                  "name": "Critical",
+                  "value": "Critical"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Operational Impact",
+              "displayName": "Operational Impact",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Low",
+                  "value": "Low"
+                },
+                {
+                  "name": "Medium",
+                  "value": "Medium"
+                },
+                {
+                  "name": "High",
+                  "value": "High"
+                },
+                {
+                  "name": "Critical",
+                  "value": "Critical"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Escalation Required",
+              "displayName": "Escalation Required",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Yes",
+                  "value": "Yes"
+                },
+                {
+                  "name": "No",
+                  "value": "No"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Incident Status",
+              "displayName": "Incident Status",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "New",
+                  "value": "New"
+                },
+                {
+                  "name": "Under Review",
+                  "value": "Under Review"
+                },
+                {
+                  "name": "Escalated",
+                  "value": "Escalated"
+                },
+                {
+                  "name": "Resolved",
+                  "value": "Resolved"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Reporter Name",
+              "displayName": "Reporter Name",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Reporter Email",
+              "displayName": "Reporter Email",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "AI Summary",
+              "displayName": "AI Summary",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Incident Description",
+              "displayName": "Incident Description",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        1104,
+        -16
+      ],
+      "id": "61771994-9df9-417d-be11-8e50c4884e52",
+      "name": "Airtable — Escalated",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "wdach3vo2rRP2ugS",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "",
+          "mode": "list",
+          "cachedResultName": "",
+          "cachedResultUrl": ""
+        },
+        "table": {
+          "__rl": true,
+          "value": "",
+          "mode": "list",
+          "cachedResultName": "",
+          "cachedResultUrl": ""
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Escalation Required": "={{$json[\"escalation_required\"]}}",
+            "Incident Title": "={{$node[\"Webhook\"].json.body.data.fields[0].value}}",
+            "Department": "={{$node[\"Code in JavaScript\"].json[\"department\"]}}",
+            "Incident Type": "={{$node[\"Code in JavaScript\"].json[\"incident_type\"]}}",
+            "Operational Impact": "={{$node[\"Code in JavaScript\"].json[\"operational_impact\"]}}",
+            "AI Priority": "={{$node[\"Code in JavaScript\"].json[\"severity\"]}}",
+            "AI Summary": "={{$node[\"Code in JavaScript\"].json[\"summary\"]}}",
+            "Reporter Name": "={{$node[\"Webhook\"].json.body.data.fields[3].value}}",
+            "Reporter Email": "={{$node[\"Webhook\"].json.body.data.fields[4].value}}",
+            "Incident Description": "={{$node[\"Webhook\"].json.body.data.fields[2].value}}",
+            "Incident Status": "={{\n$node[\"Code in JavaScript\"].json[\"severity\"] === \"Critical\" ||\n$node[\"Code in JavaScript\"].json[\"severity\"] === \"High\"\n? \"Escalated\"\n: $node[\"Code in JavaScript\"].json[\"severity\"] === \"Medium\"\n? \"Under Review\"\n: \"Resolved\"\n}}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Ticket ID",
+              "displayName": "Ticket ID",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": true
+            },
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": true
+            },
+            {
+              "id": "Incident Title",
+              "displayName": "Incident Title",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Department",
+              "displayName": "Department",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Logistics",
+                  "value": "Logistics"
+                },
+                {
+                  "name": "Warehouse",
+                  "value": "Warehouse"
+                },
+                {
+                  "name": "Dispatch",
+                  "value": "Dispatch"
+                },
+                {
+                  "name": "Customer Support",
+                  "value": "Customer Support"
+                },
+                {
+                  "name": "Fleet Operations",
+                  "value": "Fleet Operations"
+                },
+                {
+                  "name": "Cold Chain",
+                  "value": "Cold Chain"
+                },
+                {
+                  "name": "Supply Chain",
+                  "value": "Supply Chain"
+                },
+                {
+                  "name": "Transportation",
+                  "value": "Transportation"
+                },
+                {
+                  "name": "Inventory Management",
+                  "value": "Inventory Management"
+                },
+                {
+                  "name": "Operational Control Center",
+                  "value": "Operational Control Center"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Incident Type",
+              "displayName": "Incident Type",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Delay",
+                  "value": "Delay"
+                },
+                {
+                  "name": "Route Issue",
+                  "value": "Route Issue"
+                },
+                {
+                  "name": "Driver Incident",
+                  "value": "Driver Incident"
+                },
+                {
+                  "name": "Inventory Problem",
+                  "value": "Inventory Problem"
+                },
+                {
+                  "name": "Customer Complaint",
+                  "value": "Customer Complaint"
+                },
+                {
+                  "name": "System Failure",
+                  "value": "System Failure"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "AI Priority",
+              "displayName": "AI Priority",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Low",
+                  "value": "Low"
+                },
+                {
+                  "name": "Medium",
+                  "value": "Medium"
+                },
+                {
+                  "name": "High",
+                  "value": "High"
+                },
+                {
+                  "name": "Critical",
+                  "value": "Critical"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Operational Impact",
+              "displayName": "Operational Impact",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Low",
+                  "value": "Low"
+                },
+                {
+                  "name": "Medium",
+                  "value": "Medium"
+                },
+                {
+                  "name": "High",
+                  "value": "High"
+                },
+                {
+                  "name": "Critical",
+                  "value": "Critical"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Escalation Required",
+              "displayName": "Escalation Required",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Yes",
+                  "value": "Yes"
+                },
+                {
+                  "name": "No",
+                  "value": "No"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Incident Status",
+              "displayName": "Incident Status",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "New",
+                  "value": "New"
+                },
+                {
+                  "name": "Under Review",
+                  "value": "Under Review"
+                },
+                {
+                  "name": "Escalated",
+                  "value": "Escalated"
+                },
+                {
+                  "name": "Resolved",
+                  "value": "Resolved"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Reporter Name",
+              "displayName": "Reporter Name",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Reporter Email",
+              "displayName": "Reporter Email",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "AI Summary",
+              "displayName": "AI Summary",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Incident Description",
+              "displayName": "Incident Description",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        880,
+        176
+      ],
+      "id": "8e14102b-5814-4540-8564-72967c5ddd8c",
+      "name": "Airtable — Logged"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Airtable — Logged",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message": {
+      "main": [
+        [
+          {
+            "node": "Airtable — Escalated",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Airtable — Escalated": {
+      "main": [
+        []
+      ]
+    },
+    "Airtable — Logged": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "3cee7400-dfe4-448f-b96e-82b6d3179e81",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "128b83c228ab59caa6fa5ca35fe463abfa331faa6751f296144b26fabd35b0ad"
+  },
+  "id": "mIxpAtAwnorI6TJs",
+  "tags": []
+}
